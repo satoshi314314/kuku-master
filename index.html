@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>九九スピードマスター with カノコユリッピー</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        yuri: {
+                            pink: '#f472b6',
+                            lightPink: '#fce7f3',
+                            yellow: '#fde047',
+                            softYellow: '#fef9c3',
+                            blue: '#38bdf8',
+                            lightBlue: '#e0f2fe',
+                            green: '#4ade80',
+                            cardBg: '#ffffff',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['M PLUS Rounded 1c', 'Inter', 'Noto Sans JP', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Lucide Icons & Tone.js -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'M PLUS Rounded 1c', sans-serif;
+            touch-action: manipulation;
+            background: linear-gradient(135deg, #fce7f3 0%, #e0f2fe 50%, #fef9c3 100%);
+            min-height: 100vh;
+        }
+        
+        .btn-pop {
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+            box-shadow: 0 6px 0 rgba(0,0,0,0.12);
+        }
+        .btn-pop:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 rgba(0,0,0,0.12);
+        }
+
+        .correct-flash {
+            animation: flash-correct 0.35s ease-out;
+        }
+        .wrong-flash {
+            animation: flash-wrong 0.35s ease-out;
+        }
+
+        @keyframes flash-correct {
+            0% { background-color: #dcfce7; transform: scale(1.02); }
+            100% { background-color: #ffffff; transform: scale(1); }
+        }
+        @keyframes flash-wrong {
+            0% { background-color: #fee2e2; transform: scale(0.98); }
+            100% { background-color: #ffffff; transform: scale(1); }
+        }
+
+        @keyframes float-yuri {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-8px) rotate(2deg); }
+        }
+        .anim-float {
+            animation: float-yuri 3s ease-in-out infinite;
+        }
+
+        @keyframes count-pop {
+            0% { transform: scale(0.5); opacity: 0; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .anim-count-pop {
+            animation: count-pop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+    </style>
+</head>
+<body class="text-slate-700 min-h-screen flex flex-col justify-between select-none overflow-x-hidden">
+
+    <!-- 名前登録モーダル -->
+    <div id="nameModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full text-center space-y-4 border-4 border-pink-200 shadow-2xl">
+            <div class="w-20 h-20 mx-auto anim-float">
+                <svg viewBox="0 0 100 100">
+                    <circle cx="50" cy="55" r="30" fill="#fde047"/>
+                    <path d="M50 15 C35 30 35 45 50 45 C65 45 65 30 50 15 Z" fill="#f472b6"/>
+                    <circle cx="42" cy="52" r="3.5" fill="#334155"/>
+                    <circle cx="58" cy="52" r="3.5" fill="#334155"/>
+                    <path d="M 45 60 Q 50 65 55 60" fill="none" stroke="#e11d48" stroke-width="3" stroke-linecap="round"/>
+                </svg>
+            </div>
+            <div>
+                <h3 class="text-xl font-black text-slate-800">なまえをおしえてね！</h3>
+                <p class="text-xs text-pink-500 font-bold mt-1">きろくが保存されるよ🌸</p>
+            </div>
+            <input type="text" id="userNameInput" maxlength="10" placeholder="例：たろう、1ねん1くみ" class="w-full text-center text-lg font-black p-3 rounded-2xl border-2 border-pink-300 focus:outline-none focus:border-pink-500 bg-pink-50/50">
+            <button onclick="saveUserName()" class="btn-pop w-full py-3 bg-pink-500 hover:bg-pink-600 text-white font-black text-base rounded-2xl border-2 border-pink-400">
+                スタート！
+            </button>
+        </div>
+    </div>
+
+    <!-- カウントダウンオーバーレイ -->
+    <div id="countdownOverlay" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex-col items-center justify-center p-4">
+        <div class="bg-white/95 border-4 border-pink-300 rounded-3xl p-8 sm:p-10 text-center shadow-2xl space-y-3 max-w-xs w-full flex flex-col items-center">
+            <div class="w-20 h-20 anim-float">
+                <svg viewBox="0 0 100 100">
+                    <circle cx="50" cy="55" r="30" fill="#fde047"/>
+                    <path d="M50 15 C35 30 35 45 50 45 C65 45 65 30 50 15 Z" fill="#f472b6"/>
+                    <circle cx="42" cy="52" r="3.5" fill="#334155"/>
+                    <circle cx="58" cy="52" r="3.5" fill="#334155"/>
+                    <path d="M 45 60 Q 50 65 55 60" fill="none" stroke="#e11d48" stroke-width="3" stroke-linecap="round"/>
+                </svg>
+            </div>
+            <p id="countdownSubtext" class="text-xs font-black text-pink-500">じゅんびはいいかな？</p>
+            <div id="countdownNumber" class="text-6xl sm:text-7xl font-black text-pink-600 font-mono tracking-wider min-h-[80px] flex items-center justify-center">
+                3
+            </div>
+        </div>
+    </div>
+
+    <!-- ヘッダー -->
+    <header class="bg-white/80 backdrop-blur-md border-b-2 border-pink-200 sticky top-0 z-40 px-4 py-2.5 shadow-sm">
+        <div class="max-w-3xl mx-auto flex items-center justify-between relative">
+            <div class="flex items-center gap-2 cursor-pointer" onclick="showScreen('home')">
+                <div class="w-10 h-10 rounded-full bg-pink-100 border-2 border-pink-300 flex items-center justify-center text-pink-500 shadow-sm overflow-hidden">
+                    <svg class="w-8 h-8" viewBox="0 0 100 100">
+                        <circle cx="50" cy="55" r="30" fill="#fde047"/>
+                        <path d="M50 15 C35 30 35 45 50 45 C65 45 65 30 50 15 Z" fill="#f472b6"/>
+                        <circle cx="42" cy="52" r="3.5" fill="#334155"/>
+                        <circle cx="58" cy="52" r="3.5" fill="#334155"/>
+                        <path d="M 45 60 Q 50 65 55 60" fill="none" stroke="#e11d48" stroke-width="3" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="font-extrabold text-base sm:text-lg text-pink-600 tracking-wide flex items-center gap-1">
+                        九九スピードマスター
+                    </h1>
+                    <p id="headerUserBadge" class="text-[10px] text-pink-500 font-bold">🌸 なまえ未登録</p>
+                </div>
+            </div>
+
+            <!-- 上部中央：全面（全画面）ボタン -->
+            <div class="hidden sm:flex absolute left-1/2 -translate-x-1/2 items-center">
+                <button onclick="toggleFullScreen()" class="px-3 py-1 bg-pink-100 hover:bg-pink-200 text-pink-700 font-extrabold text-xs rounded-full border border-pink-300 shadow-sm flex items-center gap-1 transition-all btn-pop">
+                    <i data-lucide="maximize" class="w-3.5 h-3.5"></i>
+                    <span>ぜんめん</span>
+                </button>
+            </div>
+
+            <div class="flex items-center gap-1.5 sm:gap-2">
+                <!-- スマホ用 全面ボタン -->
+                <button onclick="toggleFullScreen()" class="sm:hidden p-2 rounded-2xl bg-pink-100 hover:bg-pink-200 text-pink-600 transition border border-pink-300" title="ぜんめん表示">
+                    <i data-lucide="maximize" class="w-5 h-5"></i>
+                </button>
+                <button id="soundToggleBtn" onclick="toggleSound()" class="p-2 rounded-2xl bg-pink-50 hover:bg-pink-100 text-pink-500 transition border border-pink-200" title="おんせい ON/OFF">
+                    <i data-lucide="volume-2" id="soundIcon" class="w-5 h-5"></i>
+                </button>
+                <button onclick="openNameChangeModal()" class="p-2 rounded-2xl bg-pink-50 hover:bg-pink-100 text-pink-500 transition border border-pink-200" title="なまえ変更">
+                    <i data-lucide="user" class="w-5 h-5"></i>
+                </button>
+                <button onclick="showScreen('top10')" class="px-3 py-1.5 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-600 text-xs font-extrabold flex items-center gap-1 transition border border-amber-200">
+                    <i data-lucide="trophy" class="w-4 h-4 text-amber-500"></i>
+                    <span>TOP 10</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-2xl w-full mx-auto p-4 flex-1 flex flex-col justify-center">
+
+        <!-- ホーム画面 -->
+        <section id="homeScreen" class="space-y-6 my-auto py-2">
+            <div class="bg-white/90 border-4 border-pink-200 rounded-3xl p-5 sm:p-6 text-center space-y-3 shadow-lg relative overflow-hidden">
+                <div class="flex justify-center items-center gap-3">
+                    <div class="w-24 h-24 sm:w-28 sm:h-28 anim-float flex-shrink-0">
+                        <svg viewBox="0 0 200 200" class="w-full h-full filter drop-shadow-md">
+                            <ellipse cx="100" cy="125" rx="55" ry="50" fill="#fde047"/>
+                            <path d="M 55 105 Q 100 135 145 105 Q 165 150 140 170 Q 100 150 60 170 Z" fill="#38bdf8"/>
+                            <path d="M 100 35 C 70 50 65 85 100 80 C 135 85 130 50 100 35 Z" fill="#f472b6"/>
+                            <circle cx="82" cy="98" r="6" fill="#1e293b"/>
+                            <circle cx="118" cy="98" r="6" fill="#1e293b"/>
+                            <path d="M 92 106 Q 100 116 108 106 Z" fill="#e11d48"/>
+                        </svg>
+                    </div>
+
+                    <div class="text-left space-y-1">
+                        <span class="inline-block px-3 py-1 bg-pink-100 text-pink-600 rounded-full text-xs font-bold border border-pink-200">
+                            🌸 カノコユリッピーといっしょ！
+                        </span>
+                        <h2 class="text-xl sm:text-2xl font-black text-slate-800">
+                            九九スピードマスター
+                        </h2>
+                        <p class="text-xs text-slate-500 font-bold leading-relaxed">
+                            めざせ1もん1びょう！<br>あそんだきろくが保存されるよ！
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 成績まとめカード -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-white/80 border-2 border-pink-100 p-3.5 rounded-2xl shadow-sm text-center">
+                <div class="p-1.5">
+                    <p class="text-[11px] font-bold text-slate-400">クリア回数</p>
+                    <p id="statTotalGames" class="text-lg sm:text-xl font-black text-pink-500">0</p>
+                </div>
+                <div class="p-1.5 border-l border-pink-100">
+                    <p class="text-[11px] font-bold text-slate-400">へいきんスピード</p>
+                    <p id="statAvgSpeed" class="text-lg sm:text-xl font-black text-sky-500">--s</p>
+                </div>
+                <div class="p-1.5 border-l sm:border-l border-pink-100">
+                    <p class="text-[11px] font-bold text-slate-400">さいこうコンボ</p>
+                    <p id="statMaxCombo" class="text-lg sm:text-xl font-black text-amber-500">0</p>
+                </div>
+                <div class="p-1.5 border-l border-pink-100">
+                    <p class="text-[11px] font-bold text-slate-400">にがてな段</p>
+                    <p id="statWeakestDan" class="text-lg sm:text-xl font-black text-rose-500">なし</p>
+                </div>
+            </div>
+
+            <!-- モード選択ボタン -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button onclick="startMode('speed20')" class="btn-pop bg-gradient-to-b from-sky-400 to-sky-500 hover:from-sky-300 hover:to-sky-400 text-white rounded-3xl p-5 text-left border-2 border-sky-300 flex items-center justify-between group">
+                    <div class="space-y-1">
+                        <div class="inline-block bg-white/30 text-white px-2.5 py-0.5 rounded-full text-[11px] font-bold">
+                            10もん つづけてちょうせん！
+                        </div>
+                        <h3 class="text-xl font-black">スピードアタック</h3>
+                        <p class="text-xs text-sky-100 font-bold">じぶんの さいそくタイムを めざそう！</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white text-2xl font-black">
+                        ⚡
+                    </div>
+                </button>
+
+                <button onclick="startMode('weakness')" class="btn-pop bg-gradient-to-b from-pink-400 to-pink-500 hover:from-pink-300 hover:to-pink-400 text-white rounded-3xl p-5 text-left border-2 border-pink-300 flex items-center justify-between group">
+                    <div class="space-y-1">
+                        <div class="inline-block bg-white/30 text-white px-2.5 py-0.5 rounded-full text-[11px] font-bold">
+                            つまずき問題をピックアップ
+                        </div>
+                        <h3 class="text-xl font-black">にがて とっくん</h3>
+                        <p class="text-xs text-pink-100 font-bold">すこし時間がかかる問題を特訓！</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-white text-2xl font-black">
+                        🌸
+                    </div>
+                </button>
+            </div>
+        </section>
+
+        <!-- ゲームプレイ画面 -->
+        <section id="gameScreen" class="hidden flex-col items-center justify-between space-y-4 my-auto py-2">
+            <div class="w-full bg-white/90 border-2 border-pink-200 px-4 py-2.5 rounded-2xl flex items-center justify-between shadow-sm">
+                <div class="flex items-center gap-1.5">
+                    <span class="text-xs font-bold text-pink-400">もんだい</span>
+                    <span id="questionProgress" class="font-black text-pink-600 text-lg">1/10</span>
+                </div>
+
+                <div class="flex items-center gap-1 font-mono bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
+                    <i data-lucide="clock" class="w-4 h-4 text-amber-500"></i>
+                    <span id="liveTimer" class="font-black text-lg text-amber-600">0.00</span>
+                    <span class="text-xs text-amber-500 font-bold">秒</span>
+                </div>
+
+                <div class="flex items-center gap-1">
+                    <span class="text-lg">🔥</span>
+                    <span id="comboCounter" class="font-black text-orange-500 text-lg">0</span>
+                    <span class="text-[10px] font-bold text-orange-400">コンボ</span>
+                </div>
+            </div>
+
+            <div class="w-full bg-pink-100 h-3 rounded-full overflow-hidden p-0.5 border border-pink-200">
+                <div id="progressBar" class="bg-gradient-to-r from-pink-400 to-yellow-400 h-full rounded-full w-0 transition-all duration-200"></div>
+            </div>
+
+            <div id="questionBox" class="w-full bg-white border-4 border-pink-200 rounded-3xl p-6 sm:p-8 text-center shadow-md relative overflow-hidden flex flex-col items-center justify-center min-h-[170px] sm:min-h-[200px]">
+                <div class="absolute top-3 right-3 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-pink-50 text-pink-500 border border-pink-200">
+                    もくひょう: 1.0びょう以内！
+                </div>
+
+                <div class="flex items-center justify-center gap-2 sm:gap-4 my-auto font-extrabold">
+                    <span id="numA" class="text-5xl sm:text-7xl font-black text-slate-800">7</span>
+                    <span id="operator" class="text-3xl sm:text-5xl font-black text-pink-500">×</span>
+                    <span id="numB" class="text-5xl sm:text-7xl font-black text-slate-800">8</span>
+                    <span class="text-3xl sm:text-5xl font-black text-slate-400">=</span>
+                    
+                    <div class="relative min-w-[70px] sm:min-w-[100px]">
+                        <span id="userAnswerDisplay" class="inline-block text-5xl sm:text-7xl font-black text-sky-500 border-b-4 border-sky-400 px-2 min-h-[1.2em]">
+                            ?
+                        </span>
+                    </div>
+                </div>
+
+                <div id="feedbackMessage" class="h-6 text-xs sm:text-sm font-bold tracking-wider mt-1 opacity-0 transition-opacity">
+                    すごい！爆速！(0.7秒)
+                </div>
+            </div>
+
+            <!-- テンキー -->
+            <div class="w-full grid grid-cols-3 gap-2 sm:gap-2.5 max-w-xs mx-auto">
+                <button onclick="pressKey('1')" class="keypad-btn btn-pop py-3 bg-white hover:bg-pink-50 active:bg-pink-200 text-2xl font-black rounded-2xl border-2 border-pink-200 text-slate-700">1</button>
+                <button onclick="pressKey('2')" class="keypad-btn btn-pop py-3 bg-white hover:bg-pink-50 active:bg-pink-200 text-2xl font-black rounded-2xl border-2 border-pink-200 text-slate-700">2</button>
+                <button onclick="pressKey('3')" class="keypad-btn btn-pop py-3 bg-white hover:bg-pink-50 active:bg-pink-200 text-2xl font-black rounded-2xl border-2 border-pink-200 text-slate-700">3</button>
+                <button onclick="pressKey('4')" class="keypad-btn btn-pop py-3 bg-white hover:bg-pink-50 active:bg-pink-200 text-2xl font-black rounded-2xl border-2 border-pink-200 text-slate-700">4</button>
+                <button onclick="pressKey('5')" class="keypad-btn btn-pop py-3 bg-white hover:bg-pink-50 active:bg-pink-200 text-2xl font-black rounded-2xl border-2 border-pink-200 text-slate-700">5</button>
+                <button onclick="pressKey('6')" class="keypad-btn btn-pop py-3 bg-white hover:bg-pink-50 active:bg-pink-200 text-2xl font-black rounded-2xl border-2 border-pink-200 text-slate-700">6</button>
+                <button onclick="pressKey('7')" class="keypad-btn btn-pop py-3 bg-white hover:bg-pink-50 active:bg-pink-200 text-2xl font-black rounded-2xl border-2 border-pink-200 text-slate-700">7</button>
+                <button onclick="pressKey('8')" class="keypad-btn btn-pop py-3 bg-white hover:bg-pink-50 active:bg-pink-200 text-2xl font-black rounded-2xl border-2 border-pink-200 text-slate-700">8</button>
+                <button onclick="pressKey('9')" class="keypad-btn btn-pop py-3 bg-white hover:bg-pink-50 active:bg-pink-200 text-2xl font-black rounded-2xl border-2 border-pink-200 text-slate-700">9</button>
+                <button onclick="pressKey('clear')" class="btn-pop py-3 bg-rose-100 hover:bg-rose-200 active:bg-rose-300 text-rose-600 font-bold text-xs rounded-2xl border-2 border-rose-200 flex items-center justify-center gap-1">けす</button>
+                <button onclick="pressKey('0')" class="keypad-btn btn-pop py-3 bg-white hover:bg-pink-50 active:bg-pink-200 text-2xl font-black rounded-2xl border-2 border-pink-200 text-slate-700">0</button>
+                <button onclick="submitAnswer()" class="btn-pop py-3 bg-sky-400 hover:bg-sky-500 active:bg-sky-600 text-white font-black text-sm rounded-2xl border-2 border-sky-300 flex items-center justify-center gap-1 shadow-md">OK ✨</button>
+            </div>
+        </section>
+
+        <!-- 結果画面 -->
+        <section id="resultScreen" class="hidden space-y-5 max-w-xl mx-auto w-full py-2">
+            <div class="bg-white border-4 border-pink-200 rounded-3xl p-6 text-center space-y-4 shadow-lg relative overflow-hidden">
+                <div id="resultRankBadge" class="inline-block px-4 py-1 bg-yellow-100 border border-yellow-300 text-amber-700 font-extrabold text-xs rounded-full">
+                    🌸 スピードマスター！
+                </div>
+
+                <h2 class="text-2xl sm:text-3xl font-black text-slate-800">トレーニング完了！</h2>
+
+                <div class="grid grid-cols-3 gap-2 bg-pink-50 p-3.5 rounded-2xl border border-pink-100">
+                    <div>
+                        <p class="text-[11px] text-slate-400 font-bold">タイム</p>
+                        <p id="resTotalTime" class="text-xl sm:text-2xl font-black text-sky-500 font-mono">18.4s</p>
+                    </div>
+                    <div class="border-l border-pink-200">
+                        <p class="text-[11px] text-slate-400 font-bold">1もん平均</p>
+                        <p id="resAvgTime" class="text-xl sm:text-2xl font-black text-emerald-500 font-mono">0.92s</p>
+                    </div>
+                    <div class="border-l border-pink-200">
+                        <p class="text-[11px] text-slate-400 font-bold">せいかいりつ</p>
+                        <p id="resAccuracy" class="text-xl sm:text-2xl font-black text-amber-500 font-mono">100%</p>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-amber-50/80 rounded-2xl border border-amber-200 text-left flex items-center gap-3">
+                    <div class="w-12 h-12 flex-shrink-0">
+                        <svg viewBox="0 0 100 100">
+                            <circle cx="50" cy="55" r="30" fill="#fde047"/>
+                            <path d="M50 15 C35 30 35 45 50 45 C65 45 65 30 50 15 Z" fill="#f472b6"/>
+                            <circle cx="42" cy="52" r="3.5" fill="#334155"/>
+                            <circle cx="58" cy="52" r="3.5" fill="#334155"/>
+                            <path d="M 45 60 Q 50 65 55 60" fill="none" stroke="#e11d48" stroke-width="3" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-bold text-amber-600">カノコユリッピーより</p>
+                        <p id="resEvaluationText" class="text-xs sm:text-sm font-bold text-slate-700 mt-0.5">
+                            すごいすごい！おんそくレベルだよ！この調子でがんばろう！
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 今回時間がかかった問題 -->
+            <div id="sessionWeakPointsBox" class="bg-white border-2 border-pink-100 p-4 rounded-2xl space-y-2">
+                <h3 class="text-xs font-bold text-slate-600 flex items-center gap-1">
+                    🌸 今回すこし時間がかかったもんだい
+                </h3>
+                <div id="sessionWeakList" class="flex flex-wrap gap-2 pt-1"></div>
+            </div>
+
+            <!-- スピードアタッククリア時 TOP 10 一覧表示 -->
+            <div id="resultTop10Box" class="bg-white border-2 border-pink-200 rounded-2xl p-4 shadow-sm hidden space-y-2">
+                <h3 class="text-xs font-bold text-amber-600 flex items-center gap-1">
+                    <i data-lucide="trophy" class="w-4 h-4 text-amber-500"></i> スピードアタック TOP 10
+                </h3>
+                <div id="resultTop10List" class="space-y-1.5 pt-1"></div>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="showScreen('home')" class="btn-pop flex-1 py-3 bg-white hover:bg-slate-50 font-bold text-xs text-slate-600 rounded-2xl border-2 border-slate-200 transition">
+                    ホームにもどる
+                </button>
+                <button onclick="retryCurrentMode()" class="btn-pop flex-1 py-3 bg-pink-400 hover:bg-pink-500 text-white font-black text-xs rounded-2xl border-2 border-pink-300 transition shadow-sm">
+                    もういちど挑戦！
+                </button>
+            </div>
+        </section>
+
+        <!-- TOP10 ランキング画面 -->
+        <section id="top10Screen" class="hidden space-y-4 my-auto py-2 max-w-xl mx-auto w-full">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-lg sm:text-xl font-black text-slate-800 flex items-center gap-1.5">
+                        <i data-lucide="trophy" class="w-5 h-5 text-amber-500"></i> スピードアタック TOP 10
+                    </h2>
+                    <p class="text-xs text-slate-500 font-bold">みんなのベスト記録だよ</p>
+                </div>
+                <button onclick="showScreen('home')" class="p-2 rounded-xl bg-white border border-pink-200 text-slate-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="bg-white border-2 border-pink-200 rounded-2xl p-4 shadow-sm">
+                <div id="top10List" class="space-y-2"></div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="border-t border-pink-200 bg-white/60 py-2.5 text-center text-xs text-pink-400 font-bold">
+        <p>九九スピードマスター with カノコユリッピー</p>
+    </footer>
+
+    <script>
+        let currentUserName = localStorage.getItem('kuku_user_name') || '';
+        
+        let statsData = {
+            totalGames: parseInt(localStorage.getItem('kuku_total_games') || '0', 10),
+            maxCombo: parseInt(localStorage.getItem('kuku_max_combo') || '0', 10),
+            matrix: JSON.parse(localStorage.getItem('kuku_matrix') || '{}'),
+            top10List: JSON.parse(localStorage.getItem('kuku_top10') || '[]')
+        };
+
+        let currentScreen = 'home';
+        let currentMode = 'speed20'; 
+
+        let questionQueue = [];
+        let currentQuestionIndex = 0;
+        let sessionResults = [];
+        let currentCombo = 0;
+        let maxComboInSession = 0;
+        let userInput = '';
+        let soundEnabled = true;
+        let synth = null;
+        let startTime = 0;
+        let questionStartTime = 0;
+        let timerInterval = null;
+        let currentQuestion = null;
+        let lastPlayedTimeSec = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            setupKeyboardListeners();
+            initToneSynth();
+            
+            if (currentUserName) {
+                document.getElementById('nameModal').classList.add('hidden');
+                document.getElementById('headerUserBadge').textContent = `🌸 なまえ: ${currentUserName}`;
+                loadCloudData(currentUserName);
+            } else {
+                document.getElementById('nameModal').classList.remove('hidden');
+            }
+
+            updateHomeScreenStats();
+            if (window.lucide) lucide.createIcons();
+        });
+
+        function initToneSynth() {
+            try {
+                if (typeof Tone !== 'undefined') {
+                    synth = new Tone.Synth().toDestination();
+                }
+            } catch (e) {
+                console.warn('Tone.js init error:', e);
+            }
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const btn = document.getElementById('soundIcon');
+            if (soundEnabled) {
+                btn.setAttribute('data-lucide', 'volume-2');
+            } else {
+                btn.setAttribute('data-lucide', 'volume-x');
+            }
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            try {
+                if (typeof Tone !== 'undefined' && Tone.context.state !== 'running') {
+                    Tone.start();
+                }
+                if (!synth && typeof Tone !== 'undefined') {
+                    synth = new Tone.Synth().toDestination();
+                }
+
+                if (!synth) return;
+
+                const now = Tone.now();
+                if (type === 'tap') {
+                    synth.triggerAttackRelease('C5', '16n', now);
+                } else if (type === 'correct') {
+                    synth.triggerAttackRelease('E5', '8n', now);
+                    synth.triggerAttackRelease('G5', '8n', now + 0.1);
+                } else if (type === 'fast') {
+                    synth.triggerAttackRelease('G5', '16n', now);
+                    synth.triggerAttackRelease('C6', '8n', now + 0.08);
+                } else if (type === 'wrong') {
+                    synth.triggerAttackRelease('A3', '8n', now);
+                } else if (type === 'count') {
+                    synth.triggerAttackRelease('A4', '16n', now);
+                } else if (type === 'go') {
+                    synth.triggerAttackRelease('C6', '4n', now);
+                } else if (type === 'finish') {
+                    synth.triggerAttackRelease('C5', '8n', now);
+                    synth.triggerAttackRelease('E5', '8n', now + 0.1);
+                    synth.triggerAttackRelease('G5', '8n', now + 0.2);
+                    synth.triggerAttackRelease('C6', '4n', now + 0.3);
+                }
+            } catch (e) {
+                console.warn('Audio play error:', e);
+            }
+        }
+
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen().catch(() => {});
+                }
+            }
+        }
+
+        function saveUserName() {
+            const val = document.getElementById('userNameInput').value.trim();
+            if (!val) return;
+            currentUserName = val;
+            localStorage.setItem('kuku_user_name', val);
+            document.getElementById('headerUserBadge').textContent = `🌸 なまえ: ${currentUserName}`;
+            document.getElementById('nameModal').classList.add('hidden');
+
+            loadCloudData(val);
+        }
+
+        function loadCloudData(userName) {
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                document.getElementById('headerUserBadge').textContent = `🌸 記録を読み込み中...`;
+                google.script.run
+                    .withSuccessHandler((serverData) => {
+                        if (serverData) {
+                            try {
+                                const parsed = JSON.parse(serverData);
+                                statsData = parsed;
+                                saveDataToLocal();
+                                updateHomeScreenStats();
+                            } catch(e) {}
+                        }
+                        document.getElementById('headerUserBadge').textContent = `🌸 なまえ: ${currentUserName}`;
+                    })
+                    .loadUserData(userName);
+            } else {
+                document.getElementById('headerUserBadge').textContent = `🌸 なまえ: ${currentUserName}`;
+            }
+        }
+
+        function openNameChangeModal() {
+            document.getElementById('userNameInput').value = currentUserName;
+            document.getElementById('nameModal').classList.remove('hidden');
+        }
+
+        function saveDataToLocal() {
+            localStorage.setItem('kuku_total_games', statsData.totalGames);
+            localStorage.setItem('kuku_max_combo', statsData.maxCombo);
+            localStorage.setItem('kuku_matrix', JSON.stringify(statsData.matrix));
+            localStorage.setItem('kuku_top10', JSON.stringify(statsData.top10List));
+
+            if (currentUserName && typeof google !== 'undefined' && google.script && google.script.run) {
+                const payload = JSON.stringify(statsData);
+                google.script.run.saveUserData(currentUserName, payload);
+            }
+        }
+
+        function showScreen(screenId) {
+            currentScreen = screenId;
+            document.getElementById('homeScreen').classList.add('hidden');
+            document.getElementById('gameScreen').classList.add('hidden');
+            document.getElementById('resultScreen').classList.add('hidden');
+            document.getElementById('top10Screen').classList.add('hidden');
+
+            if (screenId === 'home') {
+                updateHomeScreenStats();
+                document.getElementById('homeScreen').classList.remove('hidden');
+            } else if (screenId === 'game') {
+                document.getElementById('gameScreen').classList.remove('hidden');
+                document.getElementById('gameScreen').classList.add('flex');
+            } else if (screenId === 'result') {
+                document.getElementById('resultScreen').classList.remove('hidden');
+            } else if (screenId === 'top10') {
+                renderTop10List('top10List');
+                document.getElementById('top10Screen').classList.remove('hidden');
+            }
+        }
+
+        function startMode(mode) {
+            currentMode = mode;
+            questionQueue = generateQuestions(mode);
+            currentQuestionIndex = 0;
+            sessionResults = [];
+            currentCombo = 0;
+            maxComboInSession = 0;
+            userInput = '';
+
+            showScreen('game');
+            runCountdown(() => {
+                startOverallTimer();
+                loadNextQuestion();
+            });
+        }
+
+        function runCountdown(onComplete) {
+            const overlay = document.getElementById('countdownOverlay');
+            const numEl = document.getElementById('countdownNumber');
+            const subEl = document.getElementById('countdownSubtext');
+            
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex');
+
+            const steps = [
+                { text: '3', sub: 'じゅんびはいいかな？', sound: 'count' },
+                { text: '2', sub: 'よーい...', sound: 'count' },
+                { text: '1', sub: 'し集中ー！', sound: 'count' },
+                { text: 'スタート！🌸', sub: 'いけーっ！', sound: 'go' }
+            ];
+
+            let currentStep = 0;
+
+            function showStep() {
+                if (currentStep >= steps.length) {
+                    overlay.classList.add('hidden');
+                    overlay.classList.remove('flex');
+                    if (onComplete) onComplete();
+                    return;
+                }
+
+                const step = steps[currentStep];
+                subEl.textContent = step.sub;
+                numEl.textContent = step.text;
+                
+                numEl.classList.remove('anim-count-pop');
+                void numEl.offsetWidth;
+                numEl.classList.add('anim-count-pop');
+
+                if (step.text === 'スタート！🌸') {
+                    numEl.className = "text-4xl sm:text-5xl font-black text-amber-500 font-sans tracking-tight min-h-[80px] flex items-center justify-center anim-count-pop";
+                } else {
+                    numEl.className = "text-6xl sm:text-7xl font-black text-pink-600 font-mono tracking-wider min-h-[80px] flex items-center justify-center anim-count-pop";
+                }
+
+                playSound(step.sound);
+                currentStep++;
+                setTimeout(showStep, step.text === 'スタート！🌸' ? 600 : 800);
+            }
+
+            showStep();
+        }
+
+        function retryCurrentMode() {
+            startMode(currentMode);
+        }
+
+        function generateQuestions(mode) {
+            let list = [];
+            if (mode === 'speed20') {
+                let all = [];
+                for (let a = 1; a <= 9; a++) {
+                    for (let b = 1; b <= 9; b++) {
+                        all.push({ a, b });
+                    }
+                }
+                shuffleArray(all);
+                list = all.slice(0, 10);
+            } else if (mode === 'weakness') {
+                let weightedList = [];
+                for (let a = 1; a <= 9; a++) {
+                    for (let b = 1; b <= 9; b++) {
+                        const key = `${a}x${b}`;
+                        const stat = statsData.matrix[key];
+                        let weight = 1;
+                        if (stat && stat.count > 0) {
+                            const avgMs = stat.totalTimeMs / stat.count;
+                            if (avgMs > 2000) weight += 5;
+                            else if (avgMs > 1500) weight += 3;
+                            if (stat.errors > 0) weight += stat.errors * 2;
+                        } else {
+                            weight += 2;
+                        }
+                        for (let w = 0; w < weight; w++) {
+                            weightedList.push({ a, b });
+                        }
+                    }
+                }
+                shuffleArray(weightedList);
+                let uniqueMap = new Set();
+                for (let item of weightedList) {
+                    let k = `${item.a}x${item.b}`;
+                    if (!uniqueMap.has(k)) {
+                        uniqueMap.add(k);
+                        list.push(item);
+                    }
+                    if (list.length >= 10) break;
+                }
+            }
+            return list;
+        }
+
+        function shuffleArray(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+        }
+
+        function startOverallTimer() {
+            startTime = performance.now();
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                const elapsedSec = ((performance.now() - startTime) / 1000).toFixed(2);
+                document.getElementById('liveTimer').textContent = elapsedSec;
+            }, 30);
+        }
+
+        function stopOverallTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            return (performance.now() - startTime) / 1000;
+        }
+
+        function loadNextQuestion() {
+            if (currentQuestionIndex >= questionQueue.length) {
+                finishGame();
+                return;
+            }
+
+            currentQuestion = questionQueue[currentQuestionIndex];
+            userInput = '';
+            questionStartTime = performance.now();
+
+            document.getElementById('questionProgress').textContent = `${currentQuestionIndex + 1}/${questionQueue.length}`;
+            const pct = ((currentQuestionIndex) / questionQueue.length) * 100;
+            document.getElementById('progressBar').style.width = `${pct}%`;
+            document.getElementById('comboCounter').textContent = currentCombo;
+
+            document.getElementById('numA').textContent = currentQuestion.a;
+            document.getElementById('numB').textContent = currentQuestion.b;
+
+            updateAnswerDisplay();
+            document.getElementById('feedbackMessage').classList.add('opacity-0');
+        }
+
+        function updateAnswerDisplay() {
+            const disp = document.getElementById('userAnswerDisplay');
+            if (userInput === '') {
+                disp.textContent = '?';
+                disp.classList.add('text-slate-300');
+                disp.classList.remove('text-sky-500');
+            } else {
+                disp.textContent = userInput;
+                disp.classList.remove('text-slate-300');
+                disp.classList.add('text-sky-500');
+            }
+        }
+
+        function pressKey(key) {
+            playSound('tap');
+            if (key === 'clear') {
+                userInput = '';
+            } else if (typeof key === 'string' && key.length === 1 && key >= '0' && key <= '9') {
+                if (userInput.length < 2) userInput += key;
+            }
+            updateAnswerDisplay();
+
+            if (currentQuestion) {
+                const expectedAns = currentQuestion.a * currentQuestion.b;
+                if (userInput.length === expectedAns.toString().length) {
+                    submitAnswer();
+                }
+            }
+        }
+
+        function submitAnswer() {
+            if (userInput === '') return;
+
+            const expected = currentQuestion.a * currentQuestion.b;
+            const userNum = parseInt(userInput, 10);
+            const elapsedMs = performance.now() - questionStartTime;
+            const elapsedSec = (elapsedMs / 1000).toFixed(1);
+
+            const isCorrect = (userNum === expected);
+            const qBox = document.getElementById('questionBox');
+
+            if (isCorrect) {
+                currentCombo++;
+                if (currentCombo > maxComboInSession) maxComboInSession = currentCombo;
+
+                if (elapsedMs < 1000) {
+                    playSound('fast');
+                    showFeedback(`🌸 すごーい！ばくそく！(${elapsedSec}秒)`, 'text-emerald-500');
+                } else {
+                    playSound('correct');
+                    showFeedback(`✨ いいかんじ！(${elapsedSec}秒)`, 'text-sky-500');
+                }
+
+                qBox.classList.add('correct-flash');
+                setTimeout(() => qBox.classList.remove('correct-flash'), 350);
+
+                recordQuestionStat(currentQuestion.a, currentQuestion.b, elapsedMs, false);
+
+                sessionResults.push({
+                    a: currentQuestion.a,
+                    b: currentQuestion.b,
+                    timeMs: elapsedMs,
+                    correct: true
+                });
+
+                currentQuestionIndex++;
+                setTimeout(loadNextQuestion, 200);
+
+            } else {
+                currentCombo = 0;
+                playSound('wrong');
+                showFeedback(`とうまい！こたえ: ${expected}`, 'text-rose-500');
+
+                qBox.classList.add('wrong-flash');
+                setTimeout(() => qBox.classList.remove('wrong-flash'), 350);
+
+                recordQuestionStat(currentQuestion.a, currentQuestion.b, elapsedMs, true);
+
+                sessionResults.push({
+                    a: currentQuestion.a,
+                    b: currentQuestion.b,
+                    timeMs: elapsedMs,
+                    correct: false
+                });
+
+                userInput = '';
+                updateAnswerDisplay();
+            }
+        }
+
+        function showFeedback(text, colorClass) {
+            const fb = document.getElementById('feedbackMessage');
+            fb.textContent = text;
+            fb.className = `h-6 text-xs sm:text-sm font-bold tracking-wider mt-1 opacity-100 transition-opacity ${colorClass}`;
+        }
+
+        function setupKeyboardListeners() {
+            window.addEventListener('keydown', (e) => {
+                if (currentScreen !== 'game') return;
+
+                if (e.key >= '0' && e.key <= '9') {
+                    e.preventDefault();
+                    pressKey(e.key);
+                } else if (e.key === 'Backspace' || e.key === 'Delete' || e.key.toLowerCase() === 'c') {
+                    e.preventDefault();
+                    pressKey('clear');
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    submitAnswer();
+                }
+            });
+        }
+
+        function finishGame() {
+            const totalSec = stopOverallTimer();
+            lastPlayedTimeSec = parseFloat(totalSec.toFixed(1));
+            playSound('finish');
+
+            statsData.totalGames++;
+            if (maxComboInSession > statsData.maxCombo) {
+                statsData.maxCombo = maxComboInSession;
+            }
+
+            const totalMs = sessionResults.reduce((acc, curr) => acc + curr.timeMs, 0);
+            const avgMs = sessionResults.length > 0 ? (totalMs / sessionResults.length) : 0;
+            const avgSec = (avgMs / 1000).toFixed(2);
+
+            const correctCount = sessionResults.filter(r => r.correct).length;
+            const accuracy = Math.round((correctCount / sessionResults.length) * 100);
+
+            if (currentMode === 'speed20') {
+                saveTop10Score(lastPlayedTimeSec, parseFloat(avgSec), accuracy);
+            }
+
+            saveDataToLocal();
+
+            document.getElementById('resTotalTime').textContent = `${totalSec.toFixed(1)}s`;
+            document.getElementById('resAvgTime').textContent = `${avgSec}s`;
+            document.getElementById('resAccuracy').textContent = `${accuracy}%`;
+
+            const evalText = document.getElementById('resEvaluationText');
+            if (avgMs < 1000 && accuracy === 100) {
+                evalText.textContent = '🌸 すごいすごい！1もん1びょう未満！音速レベルだよ！';
+            } else if (avgMs < 1400) {
+                evalText.textContent = '🚀 すばらしいスピード！この調子でどんどん練習しよう！';
+            } else if (avgMs < 2000) {
+                evalText.textContent = '✨ とても順調！あとすこしで1問1秒の「かみわざ領域」に入るよ！';
+            } else {
+                evalText.textContent = '🌸 「にがてとっくん」で何度もれんしゅうしてスピードアップをめざそう！';
+            }
+
+            const sessionWeakBox = document.getElementById('sessionWeakList');
+            sessionWeakBox.innerHTML = '';
+            const slowItems = sessionResults.filter(r => r.timeMs > 2000 || !r.correct);
+
+            if (slowItems.length === 0) {
+                sessionWeakBox.innerHTML = `<span class="text-xs text-emerald-600 font-bold">🎉 パーフェクト！全問スピードクリアできたよ！</span>`;
+            } else {
+                slowItems.forEach(item => {
+                    const sec = (item.timeMs / 1000).toFixed(1);
+                    const tag = document.createElement('span');
+                    tag.className = "px-2.5 py-1 bg-pink-50 border border-pink-200 text-pink-600 text-xs font-bold rounded-xl flex items-center gap-1";
+                    tag.innerHTML = `${item.a} × ${item.b} <span class="text-[10px] text-pink-400">(${sec}s)</span>`;
+                    sessionWeakBox.appendChild(tag);
+                });
+            }
+
+            const resultTop10Box = document.getElementById('resultTop10Box');
+            if (currentMode === 'speed20') {
+                resultTop10Box.classList.remove('hidden');
+                renderTop10List('resultTop10List', lastPlayedTimeSec);
+            } else {
+                resultTop10Box.classList.add('hidden');
+            }
+
+            showScreen('result');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function saveTop10Score(timeSec, avgSec, accuracy) {
+            const newItem = {
+                userName: currentUserName || 'ななし',
+                timeSec: timeSec,
+                avgSec: avgSec,
+                accuracy: accuracy,
+                date: new Date().toLocaleDateString('ja-JP')
+            };
+
+            statsData.top10List.push(newItem);
+            statsData.top10List.sort((a, b) => a.timeSec - b.timeSec || b.accuracy - a.accuracy);
+            statsData.top10List = statsData.top10List.slice(0, 10);
+        }
+
+        function recordQuestionStat(a, b, timeMs, isError) {
+            const key = `${a}x${b}`;
+            if (!statsData.matrix[key]) {
+                statsData.matrix[key] = { totalTimeMs: 0, count: 0, errors: 0 };
+            }
+            statsData.matrix[key].totalTimeMs += timeMs;
+            statsData.matrix[key].count += 1;
+            if (isError) statsData.matrix[key].errors += 1;
+        }
+
+        function updateHomeScreenStats() {
+            document.getElementById('statTotalGames').textContent = statsData.totalGames;
+            document.getElementById('statMaxCombo').textContent = statsData.maxCombo;
+
+            let grandTotalMs = 0;
+            let grandCount = 0;
+            let danTimeSums = { 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0 };
+            let danCounts = { 1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0 };
+
+            for (let a = 1; a <= 9; a++) {
+                for (let b = 1; b <= 9; b++) {
+                    const key = `${a}x${b}`;
+                    const stat = statsData.matrix[key];
+                    if (stat && stat.count > 0) {
+                        grandTotalMs += stat.totalTimeMs;
+                        grandCount += stat.count;
+                        danTimeSums[a] += (stat.totalTimeMs / stat.count);
+                        danCounts[a] += 1;
+                    }
+                }
+            }
+
+            if (grandCount > 0) {
+                const avgSec = ((grandTotalMs / grandCount) / 1000).toFixed(2);
+                document.getElementById('statAvgSpeed').textContent = `${avgSec}s`;
+            } else {
+                document.getElementById('statAvgSpeed').textContent = `--s`;
+            }
+
+            let maxDanAvg = 0;
+            let weakestDan = null;
+            for (let d = 1; d <= 9; d++) {
+                if (danCounts[d] > 0) {
+                    const avg = danTimeSums[d] / danCounts[d];
+                    if (avg > maxDanAvg) {
+                        maxDanAvg = avg;
+                        weakestDan = d;
+                    }
+                }
+            }
+
+            if (weakestDan) {
+                document.getElementById('statWeakestDan').textContent = `${weakestDan}の段`;
+            } else {
+                document.getElementById('statWeakestDan').textContent = `なし`;
+            }
+        }
+
+        function renderTop10List(targetContainerId, highlightTimeSec = null) {
+            const container = document.getElementById(targetContainerId);
+            if (!container) return;
+            container.innerHTML = '';
+
+            const list = statsData.top10List || [];
+
+            if (list.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-6 text-slate-400 space-y-1">
+                        <p class="text-xs font-bold">まだ記録がありません</p>
+                        <p class="text-[11px]">「スピードアタック」に挑戦して記録を残そう！</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let highlightedOne = false;
+
+            list.forEach((item, index) => {
+                const rank = index + 1;
+                let badgeClass = "bg-slate-50 text-slate-600 border-slate-200";
+                let rankIcon = `#${rank}`;
+
+                if (rank === 1) {
+                    badgeClass = "bg-amber-100 text-amber-800 border-amber-300 font-black";
+                    rankIcon = "🥇 1い";
+                } else if (rank === 2) {
+                    badgeClass = "bg-slate-200 text-slate-700 border-slate-300 font-black";
+                    rankIcon = "🥈 2い";
+                } else if (rank === 3) {
+                    badgeClass = "bg-amber-50 text-amber-700 border-amber-200 font-black";
+                    rankIcon = "🥉 3い";
+                }
+
+                const isCurrentRecord = (!highlightedOne && highlightTimeSec && Math.abs(item.timeSec - highlightTimeSec) < 0.05 && item.userName === currentUserName);
+                if (isCurrentRecord) highlightedOne = true;
+
+                const highlightStyle = isCurrentRecord ? 'ring-2 ring-pink-500 bg-pink-100/90 font-bold' : '';
+
+                const row = document.createElement('div');
+                row.className = `flex items-center justify-between p-2.5 sm:p-3 rounded-2xl border transition ${badgeClass} ${highlightStyle}`;
+                row.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs sm:text-sm font-extrabold min-w-[45px]">${rankIcon}</span>
+                        <div>
+                            <div class="flex items-center gap-1.5">
+                                <p class="text-sm sm:text-base font-black text-pink-600">${item.userName || 'ななし'}</p>
+                                ${isCurrentRecord ? '<span class="px-1.5 py-0.5 bg-pink-500 text-white text-[9px] rounded-full font-bold">✨ こんかい！</span>' : ''}
+                            </div>
+                            <p class="text-[10px] text-slate-500 font-mono">タイム: ${item.timeSec.toFixed(1)}s (平均 ${item.avgSec.toFixed(2)}s)</p>
+                        </div>
+                    </div>
+                    <span class="text-[10px] text-slate-400 font-mono">${item.date || ''}</span>
+                `;
+                container.appendChild(row);
+            });
+        }
+    </script>
+</body>
+</html>
